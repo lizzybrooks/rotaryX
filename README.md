@@ -9,4 +9,4 @@ You can learn more about the hardware modifications in my instructible (link com
 
 In future versions, I'm hoping to add a sensor, so it rings when someone approaches, and to connect to the internet, so that it can react to various API data (ring as you receive a tweet, etc.).
 
-Enjoy the tool/toy, and thanks for any ideas, feedback, comments, whatever. I am a beginner coder, and this is my first contribution to GitHub. (Yay). 
+Enjoy the tool/toy, and thanks for any ideas, feedback, comments, whatever. I am a beginner coder, and this is my first contribution to GitHub. (Yay)
