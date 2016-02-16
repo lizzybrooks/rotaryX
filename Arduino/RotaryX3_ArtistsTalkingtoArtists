@@ -1,0 +1,199 @@
+/* Basic Digital Read and Rotary Phone Dial Reader
+ * ------------------ 
+ * This code reads whether the phone is on the hook by treating that hook like a button that is either open or depressed
+AND it reads out the number dialed on a rotary phone dial by counting the pulses made by the spinning dial wheel. 
+For wiring and hardware details, visit my instructible page. 
+ 
+ */
+#include "MotorDriver.h"
+
+ 
+#define INITPIN 6
+#define NUMPIN 5
+ 
+int counter; // holds the pulse count for each dial spin
+int currentValue = 0; 
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 5;    // the debounce time; increase if the output flickers
+ 
+int inPin = 7;   // choose the input pin (for a pushbutton)
+int val = 0;     // variable for reading the pin status
+boolean flag, flag2; 
+
+unsigned long time;
+
+
+void setup(){
+  
+  /*Configure the motor A to control the wheel at the left side.*/
+	/*Configure the motor B to control the wheel at the right side.*/
+	motordriver.init();
+	motordriver.setSpeed(200,MOTORB);
+	motordriver.setSpeed(200,MOTORA);
+  
+   Serial.begin(9600);
+  
+  //configure the dial reading inputs 
+  pinMode(INITPIN, INPUT_PULLUP);
+  pinMode(NUMPIN, INPUT_PULLUP);
+   
+ 
+ pinMode(inPin, INPUT);    // declare phone hook as input
+}
+
+void loop(){  
+  
+  time = millis();
+  flag = false;
+  flag2 = false;
+  
+  stopOperator();
+  
+// the below code waits for a set number of minutes and says flag= true if someone has picked up the phone  
+  do{  if (digitalRead(inPin) == LOW){
+    flag = true; // someone picked up the phone
+    break;
+  }
+  }
+  while (millis()<(time+420000L));
+  
+  
+ if (flag == true){
+  
+   Serial.println("play dialtone"); // tell processing to turn on operator voice
+   
+   do { if (digitalRead (INITPIN) == LOW) { //if the wheel starts turning
+                 stopOperator();  //stop the operator voice
+                 readNumber(); //read and react to the numbers
+                 }
+                 
+   } while (digitalRead(inPin) == LOW); //while the phone is off the hook
+ }
+ 
+ else (flag2 = ring());
+ 
+ if (flag2 == true){
+   Serial.println("play greeting"); // tell processing to turn on greeting voice
+   
+   do { if (digitalRead (INITPIN) == LOW) { //if the wheel starts turning
+                 stopOperator();  //stop the operator voice
+                 readNumber(); //read and react to the numbers
+                 }
+                 
+   } while (digitalRead(inPin) == LOW); //while the phone is off the hook
+ }
+
+/* 
+    do { stopOperator(); } //when the phone is on the hook, don't play the operator's voice (or the dial tone)
+      while (digitalRead(inPin) == HIGH ); // wait for phone to be picked up for the first time
+      delay(100); // wait 100 milliseconds
+   Serial.println("play operator"); // tell processing to turn on operator voice
+   
+   do { if (digitalRead (INITPIN) == LOW) { //if the wheel starts turning
+                 stopOperator();  //stop the operator voice
+                 readNumber(); //read and react to the numbers
+                 }
+                 
+   } while (digitalRead(inPin) == LOW); //while the phone is off the hook
+ 
+*/
+
+}
+
+void stopOperator(){
+  Serial.println("stop operator"); 
+}
+
+void endRecording(){
+  Serial.println("stop recording");
+}
+
+
+void readNumber(){
+  int initRead = digitalRead (INITPIN); // Is the wheel turning or not?
+  static int lastValue = HIGH;  // holds the last read from the pulse pin.
+
+  if (initRead == LOW) {  // If the wheel is turning....
+
+    int newValue = digitalRead (NUMPIN); // check the pulse pin.
+    if (newValue != lastValue) { // if it's CHANGED from the last read...
+      lastDebounceTime = millis(); // save its clock cycle; we need to check it.
+    }
+    // If enough time has passed (aka, it's not just a "bounce" from the 
+    // analog signal)...
+    if ((millis() - lastDebounceTime) > debounceDelay) { 
+      // and if the current value is DIFFERENT than the one you just read...
+      if (currentValue != newValue) { 
+        currentValue = newValue; // make them the same.
+        if (newValue == 1) { // If you just set it to a 1...
+          counter++; // it just finished a pulse, so add one to the counter.
+        }
+      }
+    }
+
+    lastValue = newValue; // Your new value becomes the old one for comparison.
+
+  } else {
+// once the dial returns home and switches the initializing pin OFF,
+// you can be sure that there will be no more pulses coming.
+// "Counter" is the number dialed. You may now use it for whatever you want.
+// This is adjusted for the special case of "0" actually being 10 pulses.
+  
+    if (counter > 0 && val!=HIGH) {
+      if (counter == 10) {
+      Serial.println (0);
+      Serial.println ("record question");
+      } 
+      
+      else if(counter == 6) {      // if the number is six
+            Serial.println("play response");             // play something
+         }
+      else if (counter == 7) {    // if the number is seven
+            Serial.println("record"); //record
+                      
+      }
+      
+        else if (counter == 2) {   
+            Serial.println("play greeting"); 
+     
+      }
+      else {
+        Serial.println (counter);
+      }     
+      
+// After you're done using it, reset counter so it can start again on the
+// next dial.
+  counter = 0;   
+  }
+ 
+}
+}
+
+boolean ring()
+{
+ int i; 
+ int r;
+ 
+ for(r=0;r<5;r++) {
+ 
+   for(i=0;i<20;i++){ 
+	motordriver.goForward();
+	delay(50);
+	motordriver.stop();
+	delay(50);
+
+  if (digitalRead(inPin) == LOW) return true;
+
+   }
+   for(i=0;i<40;i++) {delay(100);
+  if (digitalRead(inPin) == LOW) return true;
+
+ }
+ }
+ 
+ return false;
+ 
+}
+
+
+
