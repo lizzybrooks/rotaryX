@@ -1,0 +1,215 @@
+/*RotaryX3: Artists Talking to Artists
+This code is version three of the RotaryX project, which uses a rotary phone as a recorder and playback machine. 
+This code runs with an arduino program that is uploaded to the board in the phone. The arduino should plug into the computer's USB port,
+and the phone's receiver should plug into the headphone jack in the computer (see instructible for more details).
+
+In this version of RotaryX, art gallery visitors (humans) are instructed to interact with the phone in the following way:
+If it rings, answer it. It will play an instructional message and then a question from the recording log.
+To record a question, dial 0.
+To listen to a randomely selected question and record you answer, dial 7.
+To listen to a randomely selected question-answer combo, dial 6.
+
+Rotary X is a basic rotary phone recorder and playback machine. For use with Arduino and an old rotary phone.
+*--------------------------
+*This code reads strings from Arduino and then uses the Minim player to record and playback a series of audio files. 
+The referenced sounds are not included, but they can easily be subbed with your own tracks.
+*/
+
+import processing.serial.*; 
+import ddf.minim.*;
+import java.io.*;
+
+
+ 
+Minim minim;
+AudioInput in;
+AudioRecorder recorder; //response recorder
+AudioRecorder recorder2; //question recorder
+AudioPlayer player;  //greeting
+AudioPlayer player2; //recordings
+AudioPlayer player3; //dialtone
+AudioPlayer player4; //beep
+AudioPlayer player5; //questions
+
+
+
+
+Serial myPort;  // Create object from Serial class
+String val;     // Data received from the serial port 
+
+int recordingCount = 0;
+int current = 0;
+String recordingPrefix = "recording";
+
+int questionCount = 0;
+int currento = 0;
+String questionPrefix = "question";
+
+
+void setup() {
+  minim = new Minim(this);
+  
+  in = minim.getLineIn();
+  
+  player = minim.loadFile("greeting.wav"); //load the greeting track
+  
+  player3 = minim.loadFile("dialtone_mixdown.wav"); //load the dial tone track
+  player4 = minim.loadFile("phonebeep.wav"); // load the answering machine tone
+  
+  File folder = new File("/Users/lizzy/Documents/Processing/RotaryX3_ArtistsAskingArtists");
+  File[] listOfFiles = folder.listFiles();
+
+    for (int i = 0; i < listOfFiles.length; i++) {
+      if (listOfFiles[i].isFile() && listOfFiles[i].getName().startsWith(recordingPrefix)) {
+        println("File " + listOfFiles[i].getName());
+        recordingCount++;
+      }
+    }
+    recorder = minim.createRecorder(in, recordingPrefix + (recordingCount - 1) +".wav"); //record audio to the file myrecording.wav in the sketch root folder
+    current = (int)(Math.random() * recordingCount);
+    player2 = minim.loadFile(recordingPrefix + current + ".wav"); //load the recorded file for playback (this file should exist in the folder before you open the sketch for the first time. It will be written over each time) 
+  
+     println("Found " + recordingCount + " recordings, using " + current + " as initial recording");
+   
+   for (int i = 0; i < listOfFiles.length; i++) {
+      if (listOfFiles[i].isFile() && listOfFiles[i].getName().startsWith(questionPrefix)) {
+        println("File " + listOfFiles[i].getName());
+        questionCount++;
+      }
+    }
+   recorder2 = minim.createRecorder(in, questionPrefix + (questionCount - 1) +".wav"); //record audio to the file myquestion.wav in the sketch root folder
+   currento = (int)(Math.random() * questionCount);
+   player5 = minim.loadFile(questionPrefix + currento + ".wav"); // load the first question track
+   println ("Found " + questionCount + " questions, using " + currento + " as initial question"); //load the first question
+   
+
+   
+    String portName = Serial.list()[2]; //change the 0 to a 1 or 2 etc. to match your port
+  myPort = new Serial(this, portName, 9600); 
+ 
+}
+
+void draw()
+{
+
+background(0);
+ 
+readSerial(); //read the data coming from arduino
+
+if (val.equals("play greeting")){  //if you get the string for operator, play that file
+      println("Attempting to load file greeting.wav");
+      player = minim.loadFile("greeting.wav");
+      player.play();
+      println("playing greeting");
+  
+}
+
+if (val.equals("play dialtone")){  //if you get the string for dial tone, play that file
+      player3.play();
+      println("playing dial tone");
+  
+}
+  
+ if (val.equals("stop operator")){ //if you got the sign to shut up, do so:
+ 
+    player.pause(); //silence the operator 
+    player.rewind(); //go back to the beginning of the song
+    player2.pause(); // silence the recorded file
+    player2.rewind(); // rewind the recorded file
+    player3.pause(); // silence the dial tone
+    player3.rewind(); // rewind the dial tone file
+    player4.pause(); // silence the answering machine tone (even though it's already over)
+    player4.rewind();// rewind the record after the tone file
+    player5.pause(); //silence the question file
+    player5.rewind(); //rewind the question 
+
+    
+   if ( recorder.isRecording() ) // if the recorder is still going, close it and save the file
+    {
+      recorder.endRecord();
+      recorder.save();
+    }
+    
+   if ( recorder2.isRecording() ) // if the recorder is still going, close it and save the file
+    {
+      recorder2.endRecord();
+      recorder2.save();
+    }
+    println("shhhh");
+ }
+  
+  if (val.equals("play response")){ //if you get the sign to play the recorded file, do so
+    current = (int)(Math.random() * recordingCount);
+    println("Attempting to load file " + recordingPrefix + current + ".wav");
+    player2 = minim.loadFile(recordingPrefix + current + ".wav"); 
+    player2.play();
+    println("playing recorded message " + recordingPrefix + current + ".wav");
+  }
+  
+  if (val.equals("record")){  //if you get the sign to record, start playing the question and start recording
+
+  
+  currento = (int)(Math.random() * questionCount);
+    println("Attempting to load file " + questionPrefix + currento + ".wav");
+    player5 = minim.loadFile(questionPrefix + currento + ".wav"); 
+    player5.play();
+    println("playing recorded question " + questionPrefix + currento + ".wav");
+    
+  
+  
+  recordingCount++;
+  String newFileName = recordingPrefix + (recordingCount - 1) + ".wav";
+  File newRecording = new File(newFileName);
+  if (!newRecording.exists()) {
+    try {
+      newRecording.createNewFile();
+      println("Created file " + recordingCount);
+      current = recordingCount;
+    } catch (java.io.IOException e) {
+      println("Could not create file " + newFileName);
+    }
+  } else {
+    println("File already existed!");
+  }
+  
+    recorder = minim.createRecorder(in, newFileName, true);
+    println("recording message");
+    recorder.beginRecord();
+    
+  }
+  
+ if (val.equals("record question")){  //if you get the sign to record a question, do so and name it accordingly
+ 
+ player4.play(); //play the tone
+ 
+  questionCount++;
+  String newFileName = questionPrefix + (questionCount - 1) + ".wav";
+  File newRecording = new File(newFileName);
+  if (!newRecording.exists()) {
+    try {
+      newRecording.createNewFile();
+      println("Created file " + questionCount);
+      currento = questionCount;
+    } catch (java.io.IOException e) {
+      println("Could not create file " + newFileName);
+    }
+  } else {
+    println("File already existed!");
+  }
+  
+    recorder2 = minim.createRecorder(in, newFileName, true);
+    println("recording question");
+    recorder2.beginRecord();
+    
+  }
+
+}
+void readSerial(){
+     do{
+    val = myPort.readStringUntil('\n');         // read incoming data and store it in val 
+    } while (val == null);
+  val=trim(val);
+    
+  }
+Status API Training Shop Blog About Pricing
+© 2016 GitHub, Inc. Terms Privacy Security Contact Help
